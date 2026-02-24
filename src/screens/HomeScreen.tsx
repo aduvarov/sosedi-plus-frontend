@@ -1,7 +1,7 @@
-import { useNavigation } from '@react-navigation/native'
+import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../../App'
-import React, { useEffect, useState } from 'react'
+import React, { useEffect, useState, useCallback } from 'react'
 import {
     View,
     Text,
@@ -33,9 +33,12 @@ export const HomeScreen = () => {
 
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
 
-    useEffect(() => {
-        fetchApartments()
-    }, [])
+    // Этот хук будет дергать API каждый раз, когда мы возвращаемся на этот экран
+    useFocusEffect(
+        useCallback(() => {
+            fetchApartments()
+        }, []),
+    )
 
     const fetchApartments = async () => {
         try {

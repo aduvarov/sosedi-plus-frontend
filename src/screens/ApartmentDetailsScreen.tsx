@@ -11,9 +11,10 @@ import {
     Alert,
 } from 'react-native'
 import { useRoute, RouteProp } from '@react-navigation/native'
+import { Picker } from '@react-native-picker/picker' // <-- Импортируем Picker
 import { RootStackParamList } from '../../App'
 import { api } from '../api/axios'
-import { AuthContext } from '../context/AuthContext' // <-- Импортируем контекст!
+import { AuthContext } from '../context/AuthContext'
 
 type DetailsRouteProp = RouteProp<RootStackParamList, 'ApartmentDetails'>
 
@@ -32,24 +33,32 @@ interface ApartmentFullData {
     transactions: Transaction[]
 }
 
+interface Category {
+    id: number
+    name: string
+}
+
 export const ApartmentDetailsScreen = () => {
     const route = useRoute<DetailsRouteProp>()
     const { apartmentId, apartmentNumber } = route.params
-
-    // Достаем пользователя, чтобы проверить его права
     const { user } = useContext(AuthContext)
 
     const [data, setData] = useState<ApartmentFullData | null>(null)
+    const [categories, setCategories] = useState<Category[]>([]) // Состояние для категорий
     const [isLoading, setIsLoading] = useState(true)
 
-    // Состояния для модального окна добавления операции
+    // Состояния для формы
     const [isModalVisible, setModalVisible] = useState(false)
     const [amount, setAmount] = useState('')
     const [description, setDescription] = useState('')
+    const [selectedCategoryId, setSelectedCategoryId] = useState<number>(1) // ID выбранной категории
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     useEffect(() => {
-        fetchApartmentDetails()
+        // Загружаем и квартиру, и список категорий одновременно
+        Promise.all([fetchApartmentDetails(), fetchCategories()]).finally(() => {
+            setIsLoading(false)
+        })
     }, [])
 
     const fetchApartmentDetails = async () => {
@@ -58,12 +67,22 @@ export const ApartmentDetailsScreen = () => {
             setData(response.data)
         } catch (error) {
             console.error('Ошибка загрузки деталей:', error)
-        } finally {
-            setIsLoading(false)
         }
     }
 
-    // Функция для отправки транзакции на бэкенд
+    const fetchCategories = async () => {
+        try {
+            const response = await api.get('/categories')
+            setCategories(response.data)
+            // Если категории загрузились успешно, выбираем первую по умолчанию
+            if (response.data.length > 0) {
+                setSelectedCategoryId(response.data[0].id)
+            }
+        } catch (error) {
+            console.error('Ошибка загрузки категорий:', error)
+        }
+    }
+
     const handleAddTransaction = async (type: 'PAYMENT' | 'CHARGE') => {
         const numAmount = parseFloat(amount)
         if (isNaN(numAmount) || numAmount <= 0) {
@@ -73,8 +92,6 @@ export const ApartmentDetailsScreen = () => {
 
         try {
             setIsSubmitting(true)
-
-            // Если это долг (CHARGE), отправляем число с минусом, если оплата (PAYMENT) — с плюсом
             const finalAmount = type === 'CHARGE' ? -numAmount : numAmount
             const defaultDesc = type === 'CHARGE' ? 'Начисление' : 'Оплата'
 
@@ -82,14 +99,13 @@ export const ApartmentDetailsScreen = () => {
                 amount: finalAmount,
                 description: description.trim() || defaultDesc,
                 apartmentId: apartmentId,
-                categoryId: 1, // В будущем здесь можно сделать выпадающий список категорий
+                categoryId: selectedCategoryId, // Передаем выбранную ID категории
             })
 
-            // Закрываем модалку, очищаем поля и заново запрашиваем данные квартиры (чтобы обновился баланс!)
             setModalVisible(false)
             setAmount('')
             setDescription('')
-            await fetchApartmentDetails()
+            await fetchApartmentDetails() // Обновляем баланс и историю
         } catch (error: any) {
             Alert.alert('Ошибка', error.response?.data?.message || 'Не удалось добавить операцию')
         } finally {
@@ -142,7 +158,6 @@ export const ApartmentDetailsScreen = () => {
                     {data?.balance} ₸
                 </Text>
 
-                {/* КНОПКА ВИДНА ТОЛЬКО АДМИНУ */}
                 {user?.role === 'ADMIN' && (
                     <TouchableOpacity
                         style={styles.addButton}
@@ -163,7 +178,6 @@ export const ApartmentDetailsScreen = () => {
                 ListEmptyComponent={<Text style={styles.emptyText}>Операций пока нет</Text>}
             />
 
-            {/* ВСПЛЫВАЮЩЕЕ ОКНО ФОРМЫ */}
             <Modal
                 visible={isModalVisible}
                 transparent={true}
@@ -187,6 +201,19 @@ export const ApartmentDetailsScreen = () => {
                             value={description}
                             onChangeText={setDescription}
                         />
+
+                        {/* ВЫПАДАЮЩИЙ СПИСОК КАТЕГОРИЙ */}
+                        <View style={styles.pickerContainer}>
+                            <Text style={styles.pickerLabel}>Категория платежа:</Text>
+                            <Picker
+                                selectedValue={selectedCategoryId}
+                                onValueChange={itemValue => setSelectedCategoryId(itemValue)}
+                                style={styles.picker}>
+                                {categories.map(cat => (
+                                    <Picker.Item key={cat.id} label={cat.name} value={cat.id} />
+                                ))}
+                            </Picker>
+                        </View>
 
                         {isSubmitting ? (
                             <ActivityIndicator
@@ -222,6 +249,7 @@ export const ApartmentDetailsScreen = () => {
     )
 }
 
+// Добавляем новые стили для Picker
 const styles = StyleSheet.create({
     container: { flex: 1, backgroundColor: '#F5F7FA' },
     centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
@@ -270,13 +298,7 @@ const styles = StyleSheet.create({
     txCategory: { fontSize: 12, color: '#3498DB', fontWeight: '500' },
     txAmount: { fontSize: 16, fontWeight: 'bold' },
     emptyText: { textAlign: 'center', color: '#7F8C8D', marginTop: 20 },
-
-    // Стили для модального окна
-    modalOverlay: {
-        flex: 1,
-        backgroundColor: 'rgba(0,0,0,0.5)',
-        justifyContent: 'flex-end',
-    },
+    modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContent: {
         backgroundColor: '#FFF',
         borderTopLeftRadius: 20,
@@ -300,11 +322,28 @@ const styles = StyleSheet.create({
         marginBottom: 15,
         fontSize: 16,
     },
-    modalButtons: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 15,
+
+    // Новые стили для Picker
+    pickerContainer: {
+        backgroundColor: '#F5F7FA',
+        borderRadius: 10,
+        borderWidth: 1,
+        borderColor: '#E0E6ED',
+        marginBottom: 20,
+        overflow: 'hidden', // Чтобы Picker не вылезал за границы на iOS
     },
+    pickerLabel: {
+        fontSize: 12,
+        color: '#7F8C8D',
+        marginTop: 10,
+        marginLeft: 15,
+    },
+    picker: {
+        height: 50,
+        width: '100%',
+    },
+
+    modalButtons: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 15 },
     actionBtn: {
         flex: 1,
         padding: 15,
