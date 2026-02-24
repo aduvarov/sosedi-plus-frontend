@@ -1,3 +1,6 @@
+import { useNavigation } from '@react-navigation/native'
+import { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { RootStackParamList } from '../../App'
 import React, { useEffect, useState } from 'react'
 import {
     View,
@@ -27,6 +30,8 @@ export const HomeScreen = () => {
     const [apartments, setApartments] = useState<Apartment[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState<string | null>(null)
+
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
 
     useEffect(() => {
         fetchApartments()
@@ -63,7 +68,12 @@ export const HomeScreen = () => {
         return (
             <TouchableOpacity
                 style={[styles.card, { backgroundColor: cardBackgroundColor }]}
-                onPress={() => console.log(`Кликнули на квартиру ${item.number}`)}>
+                onPress={() =>
+                    navigation.navigate('ApartmentDetails', {
+                        apartmentId: item.id,
+                        apartmentNumber: item.number,
+                    })
+                }>
                 <Text style={styles.aptNumber}>кв. {item.number}</Text>
                 <Text style={[styles.aptBalance, { color: balanceColor }]}>{item.balance} ₸</Text>
             </TouchableOpacity>
