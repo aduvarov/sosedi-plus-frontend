@@ -1,58 +1,34 @@
-import React, { useEffect, useState } from 'react'
-import { View, Text, StyleSheet, TouchableOpacity, ActivityIndicator } from 'react-native'
+import React, { useContext } from 'react'
+import { View, Text, StyleSheet, TouchableOpacity } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
-import { api } from '../api/axios'
 import { useNavigation } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../../App'
+import { AuthContext } from '../context/AuthContext' // Импортируем контекст
 
 export const ProfileScreen = () => {
-    const [user, setUser] = useState<any>(null)
-    const [isLoading, setIsLoading] = useState(true)
-
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
 
-    useEffect(() => {
-        fetchProfile()
-    }, [])
-
-    const fetchProfile = async () => {
-        try {
-            const response = await api.get('/auth/profile')
-            setUser(response.data)
-        } catch (error) {
-            console.error('Ошибка при загрузке профиля:', error)
-        } finally {
-            setIsLoading(false)
-        }
-    }
+    // Достаем юзера прямо из глобальной памяти!
+    const { user, setUser } = useContext(AuthContext)
 
     const handleLogout = async () => {
-        // 1. Удаляем токены из хранилища
         await SecureStore.deleteItemAsync('accessToken')
         await SecureStore.deleteItemAsync('refreshToken')
 
-        // 2. Полностью сбрасываем историю навигации и кидаем на экран Login
-        // (чтобы нельзя было нажать системную кнопку "Назад" и вернуться)
+        setUser(null) // Очищаем глобальный стейт при выходе
+
         navigation.reset({
             index: 0,
             routes: [{ name: 'Login' }],
         })
     }
 
-    if (isLoading) {
-        return (
-            <View style={styles.centered}>
-                <ActivityIndicator size="large" color="#3498DB" />
-            </View>
-        )
-    }
-
     return (
         <View style={styles.container}>
             <View style={styles.card}>
                 <Text style={styles.label}>Телефон</Text>
-                <Text style={styles.value}>{user?.phone}</Text>
+                <Text style={styles.value}>{user?.phone || 'Загрузка...'}</Text>
 
                 <Text style={styles.label}>Роль в системе</Text>
                 <Text style={styles.value}>
@@ -73,6 +49,8 @@ export const ProfileScreen = () => {
         </View>
     )
 }
+
+// ... стили остаются прежними ...
 
 const styles = StyleSheet.create({
     container: { flex: 1, padding: 20, backgroundColor: '#F5F7FA' },

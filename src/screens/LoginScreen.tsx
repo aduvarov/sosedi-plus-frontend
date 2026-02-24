@@ -1,4 +1,5 @@
-import React, { useState } from 'react'
+import React, { useContext, useState } from 'react'
+import { AuthContext } from '../context/AuthContext'
 import {
     View,
     Text,
@@ -16,6 +17,7 @@ import { RootStackParamList } from '../../App' // Путь к типам из Ap
 
 export const LoginScreen = () => {
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
+    const { loadUser } = useContext(AuthContext)
     const [phone, setPhone] = useState('')
     const [password, setPassword] = useState('')
     const [isLoading, setIsLoading] = useState(false)
@@ -39,6 +41,9 @@ export const LoginScreen = () => {
             // Надежно сохраняем токены в памяти устройства
             await SecureStore.setItemAsync('accessToken', accessToken)
             await SecureStore.setItemAsync('refreshToken', refreshToken)
+
+            // Загружаем профиль в глобальный стейт перед переходом на главную!
+            await loadUser()
 
             // ПЕРЕХОДИМ НА ГЛАВНЫЙ ЭКРАН (используем replace, чтобы нельзя было вернуться назад на экран логина по кнопке "Назад")
             navigation.replace('MainTabs')

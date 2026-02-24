@@ -1,4 +1,5 @@
 import React from 'react'
+import { AuthProvider } from './src/context/AuthContext'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { NavigationContainer } from '@react-navigation/native'
@@ -56,32 +57,34 @@ function MainTabs() {
 export default function App() {
     return (
         <SafeAreaProvider>
-            <NavigationContainer>
-                <Stack.Navigator initialRouteName="Login">
-                    {/* Экран входа */}
-                    <Stack.Screen
-                        name="Login"
-                        component={LoginScreen}
-                        options={{ headerShown: false }}
-                    />
+            <AuthProvider>
+                <NavigationContainer>
+                    <Stack.Navigator initialRouteName="Login">
+                        {/* Экран входа */}
+                        <Stack.Screen
+                            name="Login"
+                            component={LoginScreen}
+                            options={{ headerShown: false }}
+                        />
 
-                    {/* Главный экран приложения (с вкладками внизу) */}
-                    <Stack.Screen
-                        name="MainTabs"
-                        component={MainTabs}
-                        options={{ headerShown: false }}
-                    />
+                        {/* Главный экран приложения (с вкладками внизу) */}
+                        <Stack.Screen
+                            name="MainTabs"
+                            component={MainTabs}
+                            options={{ headerShown: false }}
+                        />
 
-                    {/* Экран деталей квартиры (открывается поверх вкладок) */}
-                    <Stack.Screen
-                        name="ApartmentDetails"
-                        component={ApartmentDetailsScreen}
-                        options={({ route }) => ({
-                            title: `Квартира ${route.params.apartmentNumber}`,
-                        })}
-                    />
-                </Stack.Navigator>
-            </NavigationContainer>
+                        {/* Экран деталей квартиры (открывается поверх вкладок) */}
+                        <Stack.Screen
+                            name="ApartmentDetails"
+                            component={ApartmentDetailsScreen}
+                            options={({ route }) => ({
+                                title: `Квартира ${route.params.apartmentNumber}`,
+                            })}
+                        />
+                    </Stack.Navigator>
+                </NavigationContainer>
+            </AuthProvider>
             <StatusBar style="auto" />
         </SafeAreaProvider>
     )
