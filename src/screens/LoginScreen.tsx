@@ -41,7 +41,7 @@ export const LoginScreen = () => {
             await SecureStore.setItemAsync('refreshToken', refreshToken)
 
             // ПЕРЕХОДИМ НА ГЛАВНЫЙ ЭКРАН (используем replace, чтобы нельзя было вернуться назад на экран логина по кнопке "Назад")
-            navigation.replace('Home')
+            navigation.replace('MainTabs')
         } catch (error: any) {
             // Обрабатываем ошибку от сервера (например, неверный пароль)
             const message = error.response?.data?.message || 'Что-то пошло не так при входе'
