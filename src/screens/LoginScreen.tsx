@@ -10,8 +10,12 @@ import {
 } from 'react-native'
 import * as SecureStore from 'expo-secure-store'
 import { api } from '../api/axios'
+import { useNavigation } from '@react-navigation/native'
+import { NativeStackNavigationProp } from '@react-navigation/native-stack'
+import { RootStackParamList } from '../../App' // Путь к типам из App.tsx
 
 export const LoginScreen = () => {
+    const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
     const [phone, setPhone] = useState('')
     const [password, setPassword] = useState('')
     const [isLoading, setIsLoading] = useState(false)
@@ -36,9 +40,8 @@ export const LoginScreen = () => {
             await SecureStore.setItemAsync('accessToken', accessToken)
             await SecureStore.setItemAsync('refreshToken', refreshToken)
 
-            Alert.alert('Успех!', 'Вы успешно вошли в систему')
-
-            // TODO: Здесь мы позже добавим переход на главный экран (Home)
+            // ПЕРЕХОДИМ НА ГЛАВНЫЙ ЭКРАН (используем replace, чтобы нельзя было вернуться назад на экран логина по кнопке "Назад")
+            navigation.replace('Home')
         } catch (error: any) {
             // Обрабатываем ошибку от сервера (например, неверный пароль)
             const message = error.response?.data?.message || 'Что-то пошло не так при входе'
