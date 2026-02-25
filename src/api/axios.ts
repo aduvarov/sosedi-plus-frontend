@@ -30,11 +30,56 @@ api.interceptors.request.use(
     },
 )
 
-// Заготовка для интерцептора ОТВЕТОВ (здесь мы позже настроим автоматический Refresh токена, если сервер вернул 401)
+// ИНТЕРЦЕПТОР ОТВЕТОВ
 api.interceptors.response.use(
     response => response,
     async error => {
-        // Здесь будет логика обновления токена
+        const originalRequest = error.config
+
+        // Если получили 401 и еще не пробовали обновить токен
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true
+
+            try {
+                const refreshToken = await SecureStore.getItemAsync('refreshToken')
+
+                if (refreshToken) {
+                    console.log('🔄 Access токен протух, запрашиваем новый...')
+
+                    // Используем чистый axios, но берем базовый URL из наших настроек
+                    const response = await axios.post(
+                        `${api.defaults.baseURL}/auth/refresh`,
+                        {},
+                        {
+                            headers: {
+                                Authorization: `Bearer ${refreshToken}`,
+                            },
+                        },
+                    )
+
+                    // Достаем новые токены (убедитесь, что ваш бэкенд возвращает именно эти названия полей)
+                    const { accessToken: newAccessToken, refreshToken: newRefreshToken } =
+                        response.data
+
+                    await SecureStore.setItemAsync('accessToken', newAccessToken)
+                    await SecureStore.setItemAsync('refreshToken', newRefreshToken)
+
+                    // Обновляем заголовок в упавшем запросе и повторяем его
+                    originalRequest.headers.Authorization = `Bearer ${newAccessToken}`
+                    console.log('✅ Токены обновлены! Повторяем запрос.')
+
+                    return api(originalRequest)
+                }
+            } catch (refreshError) {
+                console.error(
+                    '❌ Срок действия Refresh-токена истек. Нужно заново войти в систему.',
+                )
+                await SecureStore.deleteItemAsync('accessToken')
+                await SecureStore.deleteItemAsync('refreshToken')
+                // При следующем действии приложение само выкинет пользователя на экран Login
+            }
+        }
+
         return Promise.reject(error)
     },
 )
