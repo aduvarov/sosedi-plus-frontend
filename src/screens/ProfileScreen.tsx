@@ -70,6 +70,9 @@ export const ProfileScreen = () => {
     return (
         <View style={styles.container}>
             <View style={styles.card}>
+                <Text style={styles.label}>ФИО</Text>
+                <Text style={styles.value}>{user?.fullName || 'Не указано'}</Text>
+
                 <Text style={styles.label}>Телефон</Text>
                 <Text style={styles.value}>{user?.phone || 'Загрузка...'}</Text>
 
@@ -91,6 +94,14 @@ export const ProfileScreen = () => {
                     style={[styles.changePasswordBtn, { backgroundColor: '#27AE60' }]}
                     onPress={() => navigation.navigate('CategoryEditor')}>
                     <Text style={styles.changePasswordText}>Редактор категорий</Text>
+                </TouchableOpacity>
+            )}
+            {/* КНОПКА УПРАВЛЕНИЯ ЖИЛЬЦАМИ (ТОЛЬКО ДЛЯ АДМИНА) */}
+            {user?.role === 'ADMIN' && (
+                <TouchableOpacity
+                    style={[styles.editUsersBtn]}
+                    onPress={() => navigation.navigate('Residents')}>
+                    <Text style={styles.editUsersBtnText}>Управление жильцами</Text>
                 </TouchableOpacity>
             )}
             {/* КНОПКА СМЕНЫ ПАРОЛЯ */}
@@ -180,6 +191,19 @@ const styles = StyleSheet.create({
     },
     label: { fontSize: 14, color: '#7F8C8D', marginBottom: 5, marginTop: 15 },
     value: { fontSize: 18, fontWeight: 'bold', color: '#2C3E50' },
+
+    editUsersBtn: {
+        backgroundColor: '#3498DB',
+        padding: 15,
+        borderRadius: 10,
+        alignItems: 'center',
+        marginBottom: 15,
+    },
+    editUsersBtnText: {
+        color: '#FFF',
+        fontSize: 16,
+        fontWeight: 'bold',
+    },
 
     changePasswordBtn: {
         backgroundColor: '#34495E',

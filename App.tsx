@@ -14,12 +14,14 @@ import { ApartmentDetailsScreen } from './src/screens/ApartmentDetailsScreen'
 import { ProfileScreen } from './src/screens/ProfileScreen'
 import { GlobalExpensesScreen } from './src/screens/GlobalExpensesScreen'
 import { CategoryEditorScreen } from './src/screens/CategoryEditorScreen'
+import { ResidentsScreen } from './src/screens/ResidentsScreen'
 
 export type RootStackParamList = {
     Login: undefined
     MainTabs: undefined
     ApartmentDetails: { apartmentId: number; apartmentNumber: number }
     CategoryEditor: undefined
+    Residents: undefined
 }
 
 const Stack = createNativeStackNavigator<RootStackParamList>()
@@ -108,6 +110,11 @@ const RootNavigator = () => {
                             name="CategoryEditor"
                             component={CategoryEditorScreen}
                             options={{ title: 'Редактор категорий' }}
+                        />
+                        <Stack.Screen
+                            name="Residents"
+                            component={ResidentsScreen}
+                            options={{ title: 'Жильцы' }}
                         />
                     </>
                 ) : (
