@@ -1,7 +1,7 @@
 import { useNavigation, useFocusEffect } from '@react-navigation/native'
 import { NativeStackNavigationProp } from '@react-navigation/native-stack'
 import { RootStackParamList } from '../../App'
-import React, { useEffect, useState, useCallback } from 'react'
+import React, { useState, useCallback } from 'react'
 import {
     View,
     Text,
@@ -13,18 +13,18 @@ import {
 } from 'react-native'
 import { api } from '../api/axios'
 
-// 1. Описываем, как выглядит квартира из нашего бэкенда
+// 1. Обновленный интерфейс (теперь разделяем баланс на кошелек и долги)
 interface Apartment {
     id: number
     number: number
-    balance: number
+    walletBalance: number
+    totalDebt: number
 }
 
-// Высчитываем ширину экрана, чтобы сделать красивые квадратные карточки
 const numColumns = 3
 const screenWidth = Dimensions.get('window').width
 const cardMargin = 5
-const cardSize = (screenWidth - 40) / numColumns - cardMargin * 2 // 40 - это padding контейнера
+const cardSize = (screenWidth - 40) / numColumns - cardMargin * 2
 
 export const HomeScreen = () => {
     const [apartments, setApartments] = useState<Apartment[]>([])
@@ -33,7 +33,6 @@ export const HomeScreen = () => {
 
     const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>()
 
-    // Этот хук будет дергать API каждый раз, когда мы возвращаемся на этот экран
     useFocusEffect(
         useCallback(() => {
             fetchApartments()
@@ -54,18 +53,20 @@ export const HomeScreen = () => {
         }
     }
 
-    // 2. Функция для отрисовки одной карточки
+    // 2. Новая отрисовка карточки
     const renderApartment = ({ item }: { item: Apartment }) => {
-        // Определяем цвет карточки в зависимости от баланса
-        let cardBackgroundColor = '#FFF' // Белый по умолчанию (баланс 0)
-        let balanceColor = '#7F8C8D' // Серый текст
+        const hasDebt = item.totalDebt > 0
+        const notEnoughMoney = item.walletBalance < item.totalDebt
 
-        if (item.balance < 0) {
-            cardBackgroundColor = '#FDEDEC' // Нежно-красный фон
-            balanceColor = '#E74C3C' // Ярко-красный текст
-        } else if (item.balance > 0) {
-            cardBackgroundColor = '#EAFAF1' // Нежно-зеленый фон
-            balanceColor = '#27AE60' // Ярко-зеленый текст
+        // Логика цвета фона
+        let cardBackgroundColor //= '#FFF' // По умолчанию белый (по нулям)
+
+        if (hasDebt && notEnoughMoney) {
+            cardBackgroundColor = '#f7c8c8' // Красный: Долг есть, денег не хватает
+        } else if (hasDebt && !notEnoughMoney) {
+            cardBackgroundColor = '#d3f0df' // Желтый: Долг есть, но денег в кошельке хватает (НАДО ЗАЙТИ И ОПЛАТИТЬ)
+        } else if (item.walletBalance > 0) {
+            cardBackgroundColor = '#cdeedc' // Зеленый: Долгов нет, есть переплата
         }
 
         return (
@@ -77,8 +78,27 @@ export const HomeScreen = () => {
                         apartmentNumber: item.number,
                     })
                 }>
+                {/* 1. Номер сверху */}
                 <Text style={styles.aptNumber}>кв. {item.number}</Text>
-                <Text style={[styles.aptBalance, { color: balanceColor }]}>{item.balance} ₸</Text>
+
+                {/* 2. Кошелек по центру (Зеленый) */}
+                <View style={styles.balanceContainer}>
+                    <Text style={styles.walletLabel}>В кошельке:</Text>
+                    <Text style={[styles.aptBalance, { color: '#27AE60' }]}>
+                        {item.walletBalance} ₸
+                    </Text>
+                </View>
+
+                {/* 3. Долг внизу (Красный) - Показываем только если есть долг */}
+                {hasDebt ? (
+                    <View style={styles.debtContainer}>
+                        <Text style={styles.debtLabel}>СЧЕТОВ НА:</Text>
+                        <Text style={styles.aptDebt}>{item.totalDebt} ₸</Text>
+                    </View>
+                ) : (
+                    // Пустая заглушка, чтобы верстка не прыгала
+                    <View style={styles.debtContainer} />
+                )}
             </TouchableOpacity>
         )
     }
@@ -105,12 +125,11 @@ export const HomeScreen = () => {
 
     return (
         <View style={styles.container}>
-            {/* 3. Магия FlatList */}
             <FlatList
                 data={apartments}
                 keyExtractor={item => item.id.toString()}
                 renderItem={renderApartment}
-                numColumns={numColumns} // Строим в 3 колонки!
+                numColumns={numColumns}
                 contentContainerStyle={styles.listContainer}
                 showsVerticalScrollIndicator={false}
             />
@@ -119,62 +138,49 @@ export const HomeScreen = () => {
 }
 
 const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F5F7FA',
-    },
+    container: { flex: 1, backgroundColor: '#F5F7FA' },
     centered: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
         backgroundColor: '#F5F7FA',
     },
-    listContainer: {
-        padding: 20,
-        paddingBottom: 40,
-    },
+    listContainer: { padding: 20, paddingBottom: 40 },
     card: {
         width: cardSize,
         height: cardSize,
         margin: cardMargin,
         borderRadius: 12,
-        justifyContent: 'center',
+        justifyContent: 'space-between', // Распределяем элементы по вертикали
         alignItems: 'center',
-        // Тень для iOS
+        paddingVertical: 3,
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.1,
         shadowRadius: 4,
-        // Тень для Android
         elevation: 3,
     },
-    aptNumber: {
-        fontSize: 18,
-        fontWeight: 'bold',
-        color: '#2C3E50',
-        marginBottom: 8,
-    },
-    aptBalance: {
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    loadingText: {
-        marginTop: 10,
-        color: '#7F8C8D',
-    },
-    errorText: {
+    aptNumber: { fontSize: 16, fontWeight: 'bold', color: '#2C3E50' },
+
+    balanceContainer: { alignItems: 'center' },
+    walletLabel: { fontSize: 10, color: '#7F8C8D', textTransform: 'uppercase' },
+    aptBalance: { fontSize: 16, fontWeight: 'bold' },
+
+    debtContainer: { alignItems: 'center', height: 30, justifyContent: 'flex-end' },
+    debtLabel: {
+        fontSize: 10,
         color: '#E74C3C',
-        fontSize: 16,
-        marginBottom: 15,
+        textTransform: 'uppercase',
     },
+    aptDebt: { fontSize: 14, fontWeight: 'bold', color: '#E74C3C' },
+
+    loadingText: { marginTop: 10, color: '#7F8C8D' },
+    errorText: { color: '#E74C3C', fontSize: 16, marginBottom: 15 },
     retryButton: {
         backgroundColor: '#3498DB',
         paddingHorizontal: 20,
         paddingVertical: 10,
         borderRadius: 8,
     },
-    retryText: {
-        color: '#FFF',
-        fontWeight: 'bold',
-    },
+    retryText: { color: '#FFF', fontWeight: 'bold' },
 })
