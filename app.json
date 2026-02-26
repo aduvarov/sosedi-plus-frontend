@@ -1,33 +1,47 @@
 {
-  "expo": {
-    "name": "sosedi-plus-frontend",
-    "slug": "sosedi-plus-frontend",
-    "version": "1.0.0",
-    "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
-    "newArchEnabled": true,
-    "splash": {
-      "image": "./assets/splash-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
-    "ios": {
-      "supportsTablet": true
-    },
-    "android": {
-      "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
-        "backgroundColor": "#ffffff"
-      },
-      "edgeToEdgeEnabled": true,
-      "predictiveBackGestureEnabled": false
-    },
-    "web": {
-      "favicon": "./assets/favicon.png"
-    },
-    "plugins": [
-      "expo-secure-store"
-    ]
-  }
+    "expo": {
+        "name": "Соседи+",
+        "slug": "sosedi-plus-frontend",
+        "version": "1.0.1",
+        "orientation": "portrait",
+        "icon": "./assets/icon.png",
+        "userInterfaceStyle": "light",
+        "newArchEnabled": true,
+        "splash": {
+            "image": "./assets/splash-icon.png",
+            "resizeMode": "contain",
+            "backgroundColor": "#ffffff"
+        },
+        "ios": {
+            "supportsTablet": true
+        },
+        "android": {
+            "adaptiveIcon": {
+                "foregroundImage": "./assets/adaptive-icon.png",
+                "backgroundColor": "#ffffff"
+            },
+            "edgeToEdgeEnabled": true,
+            "predictiveBackGestureEnabled": false,
+            "package": "com.a.d.uvarov.sosediplusfrontend"
+        },
+        "web": {
+            "favicon": "./assets/favicon.png"
+        },
+        "plugins": [
+            "expo-secure-store",
+            [
+                "expo-build-properties",
+                {
+                    "android": {
+                        "usesCleartextTraffic": true
+                    }
+                }
+            ]
+        ],
+        "extra": {
+            "eas": {
+                "projectId": "f208501d-7ef6-42c2-b027-015d38bef7cf"
+            }
+        }
+    }
 }

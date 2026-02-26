@@ -60,7 +60,8 @@ export const LoginScreen = () => {
 
             <TextInput
                 style={styles.input}
-                placeholder="Номер телефона (например, +77001234567)"
+                placeholder="Номер телефона"
+                placeholderTextColor="#95A5A6"
                 value={phone}
                 onChangeText={setPhone}
                 keyboardType="phone-pad"
@@ -70,6 +71,7 @@ export const LoginScreen = () => {
             <TextInput
                 style={styles.input}
                 placeholder="Пароль"
+                placeholderTextColor="#95A5A6"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry
@@ -108,12 +110,19 @@ const styles = StyleSheet.create({
     },
     input: {
         backgroundColor: '#FFF',
-        padding: 15,
-        borderRadius: 10,
+        padding: 18, // Чуть больше места для текста
+        borderRadius: 12,
         marginBottom: 15,
         borderWidth: 1,
         borderColor: '#E0E6ED',
         fontSize: 16,
+        color: '#2C3E50', // Цвет вводимого текста
+        // Легкая тень для объема
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 2,
+        elevation: 1,
     },
     button: {
         backgroundColor: '#3498DB',
