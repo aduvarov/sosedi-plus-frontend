@@ -11,12 +11,13 @@ import {
     Alert,
     ScrollView,
     KeyboardAvoidingView,
-    Platform, // <-- Добавили для работы с клавиатурой
+    Platform,
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import { Picker } from '@react-native-picker/picker'
 import { api } from '../api/axios'
 import { AuthContext } from '../context/AuthContext'
+import { Ionicons } from '@expo/vector-icons' // <-- Иконки!
 
 interface Participant {
     id: number
@@ -33,6 +34,7 @@ interface GlobalExpense {
     collectedAmount: number
     progress: number
     participants: Participant[]
+    isClosed: boolean // <-- Новое поле
 }
 
 interface Category {
@@ -84,12 +86,9 @@ export const GlobalExpensesScreen = () => {
                 api.get('/categories'),
                 api.get('/apartments'),
             ])
-
-            // 1. ИСКЛЮЧАЕМ КАТЕГОРИЮ "КОШЕЛЕК" (ID = 1)
             const filteredCategories = catRes.data.filter((cat: Category) => cat.id !== 1)
             setCategories(filteredCategories)
             setApartments(aptRes.data)
-
             if (filteredCategories.length > 0) setSelectedCategoryId(filteredCategories[0].id)
             setSelectedApartmentIds(aptRes.data.map((a: Apartment) => a.id))
         } catch (error) {
@@ -130,21 +129,46 @@ export const GlobalExpensesScreen = () => {
         }
     }
 
-    // 2. ДИНАМИЧЕСКИЙ ЗАГОЛОВОК
+    // ЛОГИКА АРХИВАЦИИ
+    const handleToggleStatus = (id: number, isCurrentlyClosed: boolean) => {
+        Alert.alert(
+            isCurrentlyClosed ? 'Вернуть в активные?' : 'Завершить сбор?',
+            isCurrentlyClosed
+                ? 'Сбор снова появится вверху списка.'
+                : 'Сбор будет перенесен в архив (станет серым). При этом долги неплательщиков останутся за ними.',
+            [
+                { text: 'Отмена', style: 'cancel' },
+                {
+                    text: 'Да',
+                    onPress: async () => {
+                        try {
+                            await api.patch(`/global-expenses/${id}/toggle-status`)
+                            fetchExpenses()
+                        } catch (error) {
+                            Alert.alert('Ошибка', 'Не удалось изменить статус')
+                        }
+                    },
+                },
+            ],
+        )
+    }
+
     const calculateShare = () => {
         const numAmount = parseFloat(amount) || 0
         const selectedCount = selectedApartmentIds.length
-        if (numAmount > 0 && selectedCount > 0) {
-            return Math.ceil(numAmount / selectedCount)
-        }
-        return 0
+        return numAmount > 0 && selectedCount > 0 ? Math.ceil(numAmount / selectedCount) : 0
     }
     const shareAmount = calculateShare()
-    const modalTitleText = shareAmount > 0 ? `Новый сбор по ${shareAmount} ₸` : 'Новый сбор'
 
     const renderExpense = ({ item }: { item: GlobalExpense }) => {
         return (
-            <View style={styles.card}>
+            <View style={[styles.card, item.isClosed && styles.cardClosed]}>
+                {item.isClosed && (
+                    <View style={styles.closedBadge}>
+                        <Text style={styles.closedBadgeText}>ЗАВЕРШЕН</Text>
+                    </View>
+                )}
+
                 <View style={styles.cardHeader}>
                     <View style={styles.info}>
                         <Text style={styles.description}>{item.description || 'Общий сбор'}</Text>
@@ -157,9 +181,26 @@ export const GlobalExpensesScreen = () => {
                         </Text>
                         {item.category && <Text style={styles.category}>{item.category.name}</Text>}
                     </View>
-                    <View style={styles.amountContainer}>
-                        <Text style={styles.amount}>{item.totalAmount} ₸</Text>
-                        <Text style={styles.amountLabel}>общая сумма</Text>
+
+                    {/* Правый блок: Сумма и Кнопка закрытия */}
+                    <View style={{ alignItems: 'flex-end' }}>
+                        <View style={styles.amountContainer}>
+                            <Text style={styles.amount}>{item.totalAmount} ₸</Text>
+                            <Text style={styles.amountLabel}>общая сумма</Text>
+                        </View>
+                        {user?.role === 'ADMIN' && (
+                            <TouchableOpacity
+                                style={styles.actionIcon}
+                                onPress={() => handleToggleStatus(item.id, item.isClosed)}>
+                                <Ionicons
+                                    name={
+                                        item.isClosed ? 'refresh-circle' : 'checkmark-done-circle'
+                                    }
+                                    size={30}
+                                    color={item.isClosed ? '#95A5A6' : '#27AE60'}
+                                />
+                            </TouchableOpacity>
+                        )}
                     </View>
                 </View>
 
@@ -167,7 +208,10 @@ export const GlobalExpensesScreen = () => {
                     <View
                         style={[
                             styles.progressBarFill,
-                            { width: `${Math.min(item.progress * 100, 100)}%` },
+                            {
+                                width: `${Math.min(item.progress * 100, 100)}%`,
+                                backgroundColor: item.isClosed ? '#95A5A6' : '#27AE60',
+                            },
                         ]}
                     />
                 </View>
@@ -229,7 +273,6 @@ export const GlobalExpensesScreen = () => {
 
             <Modal visible={isModalVisible} animationType="slide" transparent={true}>
                 <View style={styles.modalOverlay}>
-                    {/* 3. Обертка для клавиатуры */}
                     <KeyboardAvoidingView
                         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
                         style={{ width: '100%', justifyContent: 'flex-end', maxHeight: '90%' }}>
@@ -238,6 +281,20 @@ export const GlobalExpensesScreen = () => {
                             <ScrollView
                                 showsVerticalScrollIndicator={false}
                                 contentContainerStyle={{ paddingBottom: 20 }}>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Общая сумма (на всех), например 150000"
+                                    keyboardType="numeric"
+                                    value={amount}
+                                    onChangeText={setAmount}
+                                />
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Описание (например, Ремонт лифта)"
+                                    value={description}
+                                    onChangeText={setDescription}
+                                />
+
                                 <Text style={styles.label}>Категория:</Text>
                                 <View style={styles.pickerContainer}>
                                     <Picker
@@ -253,19 +310,6 @@ export const GlobalExpensesScreen = () => {
                                         ))}
                                     </Picker>
                                 </View>
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Общая сумма (на всех), например 150000"
-                                    keyboardType="numeric"
-                                    value={amount}
-                                    onChangeText={setAmount}
-                                />
-                                <TextInput
-                                    style={styles.input}
-                                    placeholder="Описание (например, Ремонт лифта)"
-                                    value={description}
-                                    onChangeText={setDescription}
-                                />
 
                                 <Text style={styles.label}>
                                     Распределить на квартиры ({selectedApartmentIds.length} из{' '}
@@ -307,7 +351,6 @@ export const GlobalExpensesScreen = () => {
                                     <TouchableOpacity
                                         style={styles.submitBtn}
                                         onPress={handleSubmit}>
-                                        {/* ДИНАМИЧЕСКИЙ ТЕКСТ КНОПКИ */}
                                         <Text style={styles.submitBtnText}>
                                             {shareAmount > 0
                                                 ? `Распределить по ${shareAmount} ₸`
@@ -344,6 +387,7 @@ const styles = StyleSheet.create({
     headerSubtitle: { fontSize: 14, color: '#7F8C8D', marginTop: 5 },
     list: { paddingHorizontal: 20, paddingBottom: 100 },
 
+    // Стили карточки
     card: {
         backgroundColor: '#FFF',
         padding: 20,
@@ -354,12 +398,34 @@ const styles = StyleSheet.create({
         shadowOpacity: 0.1,
         shadowRadius: 4,
         elevation: 3,
+        position: 'relative',
+        overflow: 'hidden',
     },
-    cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+    cardClosed: { opacity: 0.65, backgroundColor: '#F8F9F9' }, // Стиль закрытой карточки
+
+    closedBadge: {
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        backgroundColor: '#BDC3C7',
+        paddingHorizontal: 15,
+        paddingVertical: 4,
+        borderBottomRightRadius: 10,
+        zIndex: 1,
+    },
+    closedBadgeText: { color: '#FFF', fontSize: 10, fontWeight: 'bold' },
+
+    cardHeader: {
+        flexDirection: 'row',
+        justifyContent: 'space-between',
+        alignItems: 'flex-start',
+        marginTop: 8,
+    },
     info: { flex: 1, paddingRight: 10 },
     description: { fontSize: 18, fontWeight: 'bold', color: '#2C3E50', marginBottom: 5 },
     date: { fontSize: 12, color: '#95A5A6', marginBottom: 5 },
     category: { fontSize: 12, color: '#3498DB', fontWeight: '600' },
+
     amountContainer: {
         alignItems: 'flex-end',
         backgroundColor: '#F9EBEA',
@@ -375,6 +441,8 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
 
+    actionIcon: { marginTop: 10 }, // Кнопка закрытия
+
     progressBarBg: {
         height: 8,
         backgroundColor: '#ECF0F1',
@@ -382,7 +450,7 @@ const styles = StyleSheet.create({
         marginTop: 15,
         overflow: 'hidden',
     },
-    progressBarFill: { height: '100%', backgroundColor: '#27AE60' },
+    progressBarFill: { height: '100%' },
     progressText: {
         fontSize: 12,
         color: '#7F8C8D',
@@ -414,6 +482,10 @@ const styles = StyleSheet.create({
     trafficText: { fontWeight: 'bold', fontSize: 13 },
     trafficTextPaid: { color: '#27AE60' },
     trafficTextUnpaid: { color: '#E74C3C' },
+
+    // Приглушенные цвета для закрытого сбора
+    trafficSquareClosed: { borderColor: '#D5D8DC', backgroundColor: '#EBEDEF' },
+    trafficTextClosed: { color: '#7F8C8D' },
 
     emptyText: { textAlign: 'center', color: '#7F8C8D', marginTop: 40, fontSize: 16 },
     fab: {
@@ -474,20 +546,20 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-start',
     },
     aptSquare: {
-        width: 35,
-        height: 35,
+        width: 45,
+        height: 45,
         justifyContent: 'center',
         alignItems: 'center',
         borderRadius: 8,
         margin: 4,
         borderWidth: 1,
     },
-    aptSelected: { backgroundColor: '#6bf469', borderColor: '#2980B9' },
-    aptUnselected: { backgroundColor: '#f8c0c0', borderColor: '#BDC3C7' },
-    aptTextSelected: { color: '#000000', fontWeight: 'bold', fontSize: 16 },
-    aptTextUnselected: { color: '#f39b92', fontWeight: 'bold', fontSize: 16 },
+    aptSelected: { backgroundColor: '#3498DB', borderColor: '#2980B9' },
+    aptUnselected: { backgroundColor: '#ECF0F1', borderColor: '#BDC3C7' },
+    aptTextSelected: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
+    aptTextUnselected: { color: '#7F8C8D', fontWeight: 'bold', fontSize: 16 },
     submitBtn: {
-        backgroundColor: '#2482f5',
+        backgroundColor: '#27AE60',
         padding: 15,
         borderRadius: 10,
         alignItems: 'center',
