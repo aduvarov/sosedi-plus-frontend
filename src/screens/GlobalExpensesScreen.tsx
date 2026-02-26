@@ -10,6 +10,8 @@ import {
     TextInput,
     Alert,
     ScrollView,
+    KeyboardAvoidingView,
+    Platform, // <-- Добавили для работы с клавиатурой
 } from 'react-native'
 import { useFocusEffect } from '@react-navigation/native'
 import { Picker } from '@react-native-picker/picker'
@@ -82,9 +84,13 @@ export const GlobalExpensesScreen = () => {
                 api.get('/categories'),
                 api.get('/apartments'),
             ])
-            setCategories(catRes.data)
+
+            // 1. ИСКЛЮЧАЕМ КАТЕГОРИЮ "КОШЕЛЕК" (ID = 1)
+            const filteredCategories = catRes.data.filter((cat: Category) => cat.id !== 1)
+            setCategories(filteredCategories)
             setApartments(aptRes.data)
-            if (catRes.data.length > 0) setSelectedCategoryId(catRes.data[0].id)
+
+            if (filteredCategories.length > 0) setSelectedCategoryId(filteredCategories[0].id)
             setSelectedApartmentIds(aptRes.data.map((a: Apartment) => a.id))
         } catch (error) {
             Alert.alert('Ошибка', 'Не удалось загрузить данные')
@@ -124,10 +130,21 @@ export const GlobalExpensesScreen = () => {
         }
     }
 
+    // 2. ДИНАМИЧЕСКИЙ ЗАГОЛОВОК
+    const calculateShare = () => {
+        const numAmount = parseFloat(amount) || 0
+        const selectedCount = selectedApartmentIds.length
+        if (numAmount > 0 && selectedCount > 0) {
+            return Math.ceil(numAmount / selectedCount)
+        }
+        return 0
+    }
+    const shareAmount = calculateShare()
+    const modalTitleText = shareAmount > 0 ? `Новый сбор по ${shareAmount} ₸` : 'Новый сбор'
+
     const renderExpense = ({ item }: { item: GlobalExpense }) => {
         return (
             <View style={styles.card}>
-                {/* ШАПКА КАРТОЧКИ */}
                 <View style={styles.cardHeader}>
                     <View style={styles.info}>
                         <Text style={styles.description}>{item.description || 'Общий сбор'}</Text>
@@ -146,7 +163,6 @@ export const GlobalExpensesScreen = () => {
                     </View>
                 </View>
 
-                {/* ПРОГРЕСС БАР */}
                 <View style={styles.progressBarBg}>
                     <View
                         style={[
@@ -159,7 +175,6 @@ export const GlobalExpensesScreen = () => {
                     Собрано {item.collectedAmount} из {item.totalAmount} ₸
                 </Text>
 
-                {/* СВЕТОФОР КВАРТИР */}
                 <Text style={styles.participantsLabel}>Статус оплат:</Text>
                 <View style={styles.trafficLightContainer}>
                     {item.participants?.map(p => (
@@ -212,86 +227,102 @@ export const GlobalExpensesScreen = () => {
                 </TouchableOpacity>
             )}
 
-            {/* Модалка создания сбора (код модалки остался без изменений, стили ниже) */}
             <Modal visible={isModalVisible} animationType="slide" transparent={true}>
                 <View style={styles.modalOverlay}>
-                    <View style={styles.modalContent}>
-                        <Text style={styles.modalTitle}>Новый сбор</Text>
-                        <ScrollView showsVerticalScrollIndicator={false}>
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Общая сумма (на всех), например 150000"
-                                keyboardType="numeric"
-                                value={amount}
-                                onChangeText={setAmount}
-                            />
-                            <TextInput
-                                style={styles.input}
-                                placeholder="Описание (например, Ремонт лифта)"
-                                value={description}
-                                onChangeText={setDescription}
-                            />
-
-                            <Text style={styles.label}>Категория:</Text>
-                            <View style={styles.pickerContainer}>
-                                <Picker
-                                    selectedValue={selectedCategoryId}
-                                    onValueChange={val => setSelectedCategoryId(val)}
-                                    style={styles.picker}>
-                                    {categories.map(cat => (
-                                        <Picker.Item key={cat.id} label={cat.name} value={cat.id} />
-                                    ))}
-                                </Picker>
-                            </View>
-
-                            <Text style={styles.label}>
-                                Распределить на квартиры ({selectedApartmentIds.length} из{' '}
-                                {apartments.length}):
-                            </Text>
-                            <View style={styles.grid}>
-                                {apartments.map(apt => {
-                                    const isSelected = selectedApartmentIds.includes(apt.id)
-                                    return (
-                                        <TouchableOpacity
-                                            key={apt.id}
-                                            style={[
-                                                styles.aptSquare,
-                                                isSelected
-                                                    ? styles.aptSelected
-                                                    : styles.aptUnselected,
-                                            ]}
-                                            onPress={() => toggleApartment(apt.id)}>
-                                            <Text
-                                                style={
-                                                    isSelected
-                                                        ? styles.aptTextSelected
-                                                        : styles.aptTextUnselected
-                                                }>
-                                                {apt.number}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    )
-                                })}
-                            </View>
-
-                            {isSubmitting ? (
-                                <ActivityIndicator
-                                    size="large"
-                                    color="#3498DB"
-                                    style={{ marginVertical: 20 }}
+                    {/* 3. Обертка для клавиатуры */}
+                    <KeyboardAvoidingView
+                        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+                        style={{ width: '100%', justifyContent: 'flex-end', maxHeight: '90%' }}>
+                        <View style={styles.modalContent}>
+                            <Text style={styles.modalTitle}>Новый сбор</Text>
+                            <ScrollView
+                                showsVerticalScrollIndicator={false}
+                                contentContainerStyle={{ paddingBottom: 20 }}>
+                                <Text style={styles.label}>Категория:</Text>
+                                <View style={styles.pickerContainer}>
+                                    <Picker
+                                        selectedValue={selectedCategoryId}
+                                        onValueChange={val => setSelectedCategoryId(val)}
+                                        style={styles.picker}>
+                                        {categories.map(cat => (
+                                            <Picker.Item
+                                                key={cat.id}
+                                                label={cat.name}
+                                                value={cat.id}
+                                            />
+                                        ))}
+                                    </Picker>
+                                </View>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Общая сумма (на всех), например 150000"
+                                    keyboardType="numeric"
+                                    value={amount}
+                                    onChangeText={setAmount}
                                 />
-                            ) : (
-                                <TouchableOpacity style={styles.submitBtn} onPress={handleSubmit}>
-                                    <Text style={styles.submitBtnText}>Распределить сумму</Text>
+                                <TextInput
+                                    style={styles.input}
+                                    placeholder="Описание (например, Ремонт лифта)"
+                                    value={description}
+                                    onChangeText={setDescription}
+                                />
+
+                                <Text style={styles.label}>
+                                    Распределить на квартиры ({selectedApartmentIds.length} из{' '}
+                                    {apartments.length}):
+                                </Text>
+                                <View style={styles.grid}>
+                                    {apartments.map(apt => {
+                                        const isSelected = selectedApartmentIds.includes(apt.id)
+                                        return (
+                                            <TouchableOpacity
+                                                key={apt.id}
+                                                style={[
+                                                    styles.aptSquare,
+                                                    isSelected
+                                                        ? styles.aptSelected
+                                                        : styles.aptUnselected,
+                                                ]}
+                                                onPress={() => toggleApartment(apt.id)}>
+                                                <Text
+                                                    style={
+                                                        isSelected
+                                                            ? styles.aptTextSelected
+                                                            : styles.aptTextUnselected
+                                                    }>
+                                                    {apt.number}
+                                                </Text>
+                                            </TouchableOpacity>
+                                        )
+                                    })}
+                                </View>
+
+                                {isSubmitting ? (
+                                    <ActivityIndicator
+                                        size="large"
+                                        color="#3498DB"
+                                        style={{ marginVertical: 20 }}
+                                    />
+                                ) : (
+                                    <TouchableOpacity
+                                        style={styles.submitBtn}
+                                        onPress={handleSubmit}>
+                                        {/* ДИНАМИЧЕСКИЙ ТЕКСТ КНОПКИ */}
+                                        <Text style={styles.submitBtnText}>
+                                            {shareAmount > 0
+                                                ? `Распределить по ${shareAmount} ₸`
+                                                : 'Распределить сумму'}
+                                        </Text>
+                                    </TouchableOpacity>
+                                )}
+                                <TouchableOpacity
+                                    style={styles.cancelBtn}
+                                    onPress={() => setModalVisible(false)}>
+                                    <Text style={styles.cancelBtnText}>Отмена</Text>
                                 </TouchableOpacity>
-                            )}
-                            <TouchableOpacity
-                                style={styles.cancelBtn}
-                                onPress={() => setModalVisible(false)}>
-                                <Text style={styles.cancelBtnText}>Отмена</Text>
-                            </TouchableOpacity>
-                        </ScrollView>
-                    </View>
+                            </ScrollView>
+                        </View>
+                    </KeyboardAvoidingView>
                 </View>
             </Modal>
         </View>
@@ -313,7 +344,6 @@ const styles = StyleSheet.create({
     headerSubtitle: { fontSize: 14, color: '#7F8C8D', marginTop: 5 },
     list: { paddingHorizontal: 20, paddingBottom: 100 },
 
-    // Новая вертикальная карточка
     card: {
         backgroundColor: '#FFF',
         padding: 20,
@@ -345,7 +375,6 @@ const styles = StyleSheet.create({
         fontWeight: 'bold',
     },
 
-    // Прогресс бар
     progressBarBg: {
         height: 8,
         backgroundColor: '#ECF0F1',
@@ -362,7 +391,6 @@ const styles = StyleSheet.create({
         fontWeight: '500',
     },
 
-    // Светофор квартир
     participantsLabel: {
         fontSize: 12,
         color: '#95A5A6',
@@ -406,14 +434,12 @@ const styles = StyleSheet.create({
     },
     fabText: { color: '#FFF', fontSize: 30, fontWeight: 'bold', marginTop: -2 },
 
-    // Модалка
     modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
     modalContent: {
         backgroundColor: '#FFF',
         borderTopLeftRadius: 20,
         borderTopRightRadius: 20,
         padding: 25,
-        maxHeight: '90%',
     },
     modalTitle: {
         fontSize: 20,
@@ -448,20 +474,20 @@ const styles = StyleSheet.create({
         justifyContent: 'flex-start',
     },
     aptSquare: {
-        width: 45,
-        height: 45,
+        width: 35,
+        height: 35,
         justifyContent: 'center',
         alignItems: 'center',
         borderRadius: 8,
         margin: 4,
         borderWidth: 1,
     },
-    aptSelected: { backgroundColor: '#3498DB', borderColor: '#2980B9' },
-    aptUnselected: { backgroundColor: '#ECF0F1', borderColor: '#BDC3C7' },
-    aptTextSelected: { color: '#FFF', fontWeight: 'bold', fontSize: 16 },
-    aptTextUnselected: { color: '#7F8C8D', fontWeight: 'bold', fontSize: 16 },
+    aptSelected: { backgroundColor: '#6bf469', borderColor: '#2980B9' },
+    aptUnselected: { backgroundColor: '#f8c0c0', borderColor: '#BDC3C7' },
+    aptTextSelected: { color: '#000000', fontWeight: 'bold', fontSize: 16 },
+    aptTextUnselected: { color: '#f39b92', fontWeight: 'bold', fontSize: 16 },
     submitBtn: {
-        backgroundColor: '#27AE60',
+        backgroundColor: '#2482f5',
         padding: 15,
         borderRadius: 10,
         alignItems: 'center',
