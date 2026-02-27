@@ -18,14 +18,10 @@
 
 ## 📱 Скриншоты
 
-**Главный экран (Сетка)**
-[Скриншот 1]
-
-**Карточка квартиры (Кошелек)**
-[Скриншот 2]
-
-**Общие сборы (Светофор)**
-[Скриншот 3]
+<img src="https://github.com/aduvarov/sosedi-plus-frontend/blob/65f4006d21ab3a5a41d75b660d81eabd98642b2f/assets/screen-01.jpg" width="250">
+<img src="https://github.com/aduvarov/sosedi-plus-frontend/blob/65f4006d21ab3a5a41d75b660d81eabd98642b2f/assets/screen-02.jpg" width="250">
+<img src="https://github.com/aduvarov/sosedi-plus-frontend/blob/65f4006d21ab3a5a41d75b660d81eabd98642b2f/assets/screen-03.jpg" width="250">
+<img src="https://github.com/aduvarov/sosedi-plus-frontend/blob/65f4006d21ab3a5a41d75b660d81eabd98642b2f/assets/screen-04.jpg" width="250">
 
 ## 🛠 Стек технологий
 
